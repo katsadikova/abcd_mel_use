@@ -102,14 +102,16 @@ ph_p_meds_wide <- ph_p_meds_scaf %>%
 #-- Anthropometrics - BMI
 ph_y_anthro <- read.csv("./physical-health/ph_y_anthro.csv") %>%
   mutate(
+    #-- Correct 2 height measurements - in feet rather than inches
+    anthroheightcalc = ifelse(anthroheightcalc<5,anthroheightcalc*12,anthroheightcalc),
     #- BMI calculated from pounds and inches: weight (lb) / [height (in)]2 x 703
     bmi = anthroweightcalc / (anthroheightcalc^2) * 703
   ) %>%
   #-- Select baseline visit
   filter(eventname=="baseline_year_1_arm_1") %>%
-  dplyr::select(src_subject_id, bmi) # a handful of kiddos with very low weight
+  dplyr::select(src_subject_id,anthroweightcalc,anthroheightcalc, bmi) # a handful of kiddos with very low weight
 
-
+summary(ph_y_anthro$bmi)
 
 #-- School functioning
 ce_y_srpf <- read.csv("./culture-environment/ce_y_srpf.csv") %>%
@@ -599,12 +601,6 @@ load("/Users/Kat/Dropbox/HSPH_T32/Potential projects/ABCD melatonin/temp_data/da
 #-- Impute missing predictor data  --#
 #--------------------------------------------------------------------#
 #-- Imputation code source: https://rpubs.com/kaz_yos/mice-exclude --#
-
-# #-- Exclude rows with no melatonin use information
-# data_all <- data_all %>%
-#   #-- Drop from 11868 to 11819 observations with unknown melatonin use at baseline
-#   filter(!is.na(med_use_0))
-
 table(complete.cases(data_all))
 
 ## Configure parallelization
@@ -629,95 +625,24 @@ allVars
 missVars <- names(data_all)[colSums(is.na(data_all)) > 0]
 missVars
 
-predictorMatrix <- matrix(0, ncol = length(allVars), nrow = length(allVars))
-rownames(predictorMatrix) <- allVars
+pred <- quickpred(data_all, mincor = 0.2)
+meth <- make.method(data = data_all)
 
+# Don't impute mel use variables (or other med/vit use variables) - only impute predictors
+pred[,c("med_use_0", "med_use_1", "med_use_2", "med_use_3", "med_use_4", 
+        "vit_use_0", "vit_use_1", "vit_use_2", "vit_use_3", "vit_use_4",
+        "mel_use_0", "mel_use_1", "mel_use_2", "mel_use_3", "mel_use_4"  )] <- 0 
+meth[c("med_use_0", "med_use_1", "med_use_2", "med_use_3", "med_use_4", 
+       "vit_use_0", "vit_use_1", "vit_use_2", "vit_use_3", "vit_use_4",
+       "mel_use_0", "mel_use_1", "mel_use_2", "mel_use_3", "mel_use_4")] <- ""
 
-colnames(predictorMatrix) <- allVars
-
-names(data_all)
-cat("
-###  Specify Variables informing imputation\n")
-## These can be either complete variables or variables with missingness.
-## Those with missingness must be imputed - need to exclude 
-## Explicitly specify.
-imputerVars <- names(data_all)[c(3:16,23:150)]
-imputerVars 
-## Keep variables that actually exist in dataset
-imputerVars <- intersect(unique(imputerVars), allVars)
-imputerVars
-imputerMatrix <- predictorMatrix
-imputerMatrix[,imputerVars] <- 1
-imputerMatrix
-
-cat("
-###  Specify variables with missingness to be imputed \n")
-## Could specify additional variables that are imputed,
-## but does not inform imputation.
-imputedOnlyVars <- c("med_use_4","vit_use_4","mel_use_4" )
-## Imputers that have missingness must be imputed.
-imputedVars <- intersect(unique(c(imputedOnlyVars, imputerVars)), missVars)
-imputedVars
-imputedMatrix <- predictorMatrix
-imputedMatrix[imputedVars,] <- 1
-imputedMatrix
-
-cat("
-###  Construct a full predictor matrix (rows: imputed variables; cols: imputer variables)\n")
-## Keep correct imputer-imputed pairs only
-predictorMatrix <- imputerMatrix * imputedMatrix
-## Diagonals must be zeros (a variable cannot impute itself)
-diag(predictorMatrix) <- 0
-predictorMatrix
-
-
-set.seed(123)
-
-cat("
-###  Dry-run mice for imputation methods\n")
-Mice <- mice(data = data_all, m = 1, predictorMatrix = predictorMatrix, maxit = 0)
-
-## Update predictor matrix
-predictorMatrix <- Mice$predictorMatrix
-cat("###   Imputers (non-zero columns of predictorMatrix)\n")
-imputerVars <- colnames(predictorMatrix)[colSums(predictorMatrix) > 0]
-imputerVars
-cat("###   Imputed (non-zero rows of predictorMatrix)\n")
-imputedVars <- rownames(predictorMatrix)[rowSums(predictorMatrix) > 0]
-imputedVars
-cat("###   Imputers that are complete\n")
-setdiff(imputerVars, imputedVars)
-cat("###   Imputers with missingness\n")
-intersect(imputerVars, imputedVars)
-cat("###   Imputed-only variables without being imputers\n")
-setdiff(imputedVars, imputerVars)
-cat("###   Variables with missingness that are not imputed\n")
-setdiff(missVars, imputedVars)
-cat("###   Relevant part of predictorMatrix\n")
-predictorMatrix[rowSums(predictorMatrix) > 0, colSums(predictorMatrix) > 0]
-
-
-## Empty imputation method to really exclude variables
-## http://www.stefvanbuuren.nl/publications/MICE%20in%20R%20-%20Draft.pdf
-##
-## MICE will automatically skip imputation of variables that are complete.
-## One of the problems in previous versions of MICE was that all incomplete
-## data needed to be imputed. In MICE 2.0 it is possible to skip imputation
-## of selected incomplete variables by specifying the empty method "".
-## This works as long as the incomplete variable that is skipped is not being
-## used as a predictor for imputing other variables.
-## Note: puttting zeros in the predictorMatrix alone is NOT enough!
-##
-Mice$method[setdiff(allVars, imputedVars)] <- ""
-cat("###   Methods used for imputation\n")
-Mice$method[sapply(Mice$method, nchar) > 0]
+Mice <- mice(data = data_all, m = 1, predictorMatrix = pred, method = meth, maxit = 1, seed=123)
 
 #-- Save Imputed Data!
-d_imp <- Mice
-#save(d_imp, file="/Users/Kat/Dropbox/HSPH_T32/Potential projects/ABCD melatonin/temp_data/d_imp_mel_use.Rdata")
-load("/Users/Kat/Dropbox/HSPH_T32/Potential projects/ABCD melatonin/temp_data/d_imp_mel_use.Rdata")
+#save(Mice, file="/Users/Kat/Dropbox/HSPH_T32/Potential projects/ABCD melatonin/temp_data/d_imp_mel_use_UPDATE_Jan17.Rdata")
+load("/Users/Kat/Dropbox/HSPH_T32/Potential projects/ABCD melatonin/temp_data/d_imp_mel_use_UPDATE_Jan17.Rdata")
 
-dim(complete(d_imp))
+dim(complete(Mice))
 
-summary(complete(d_imp)$mel_use_4) 
-summary(data_all$mel_use_4)
+summary(complete(Mice)$mel_use_0) 
+summary(data_all$mel_use_0)
