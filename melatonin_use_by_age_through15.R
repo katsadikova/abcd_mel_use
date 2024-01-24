@@ -213,20 +213,20 @@ d_imp_o <- d %>% filter(re_o==1)
 
 
 prevs_w <- data.frame(t(apply(d_imp_w[,c(131:138)],MARGIN=2,FUN=calc_prop_est_ci))) %>%
-  mutate(race_eth = "White")%>%
+  mutate(race_eth = "Non-Hispanic White")%>%
   tibble::rownames_to_column(.,var="age") %>%
   mutate(age = substring(age,9),
          age = case_when(
-           age=="" ~ "Any 9-16",
+           age=="" ~ "Any use ages 9-16",
            age=="15" ~ "15-16",
            T ~ age)
   )
 prevs_b <- data.frame(t(apply(d_imp_b[,c(131:138)],MARGIN=2,FUN=calc_prop_est_ci))) %>%
-  mutate(race_eth = "Black")%>%
+  mutate(race_eth = "Non-Hispanic Black")%>%
   tibble::rownames_to_column(.,var="age") %>%
   mutate(age = substring(age,9),
          age = case_when(
-           age=="" ~ "Any 9-16",
+           age=="" ~ "Any use ages 9-16",
            age=="15" ~ "15-16",
            T ~ age)
   )
@@ -235,16 +235,16 @@ prevs_h <- data.frame(t(apply(d_imp_h[,c(131:138)],MARGIN=2,FUN=calc_prop_est_ci
   tibble::rownames_to_column(.,var="age") %>%
   mutate(age = substring(age,9),
          age = case_when(
-           age=="" ~ "Any 9-16",
+           age=="" ~ "Any use ages 9-16",
            age=="15" ~ "15-16",
            T ~ age)
   )
 prevs_a <- data.frame(t(apply(d_imp_a[,c(131:138)],MARGIN=2,FUN=calc_prop_est_ci))) %>%
-  mutate(race_eth = "Asian")%>%
+  mutate(race_eth = "Non-Hispanic Asian")%>%
   tibble::rownames_to_column(.,var="age") %>%
   mutate(age = substring(age,9),
          age = case_when(
-           age=="" ~ "Any 9-16",
+           age=="" ~ "Any use ages 9-16",
            age=="15" ~ "15-16",
            T ~ age)
   )
@@ -253,7 +253,7 @@ prevs_o <- data.frame(t(apply(d_imp_o[,c(131:138)],MARGIN=2,FUN=calc_prop_est_ci
   tibble::rownames_to_column(.,var="age") %>%
   mutate(age = substring(age,9),
          age = case_when(
-           age=="" ~ "Any 9-16",
+           age=="" ~ "Any use ages 9-16",
            age=="15" ~ "15-16",
            T ~ age)
   )
@@ -275,7 +275,7 @@ prevs_re
 
 #--- Plot prevalences of med, vit, melatonin use
 prev_plot_re <- ggplot(prevs_re, aes(x=factor(age, 
-                                     levels=c("9","10","11","12","13","14","15-16","","Any 9-16")), y=est, 
+                                     levels=c("9","10","11","12","13","14","15-16","","Any use ages 9-16")), y=est, 
                                      fill=as.factor(race_eth))) + 
   geom_bar(data=prevs_re, stat="identity", position=position_dodge(), colour="gray") +
   geom_errorbar(data=prevs_re, aes(ymin=ci_l, ymax=ci_h), width=.1, 
@@ -294,7 +294,7 @@ prevs_re <- prevs_re %>% filter(race_eth != "Other")
 
 #--- Plot prevalences of med, vit, melatonin use
 prev_plot_re <- ggplot(prevs_re, aes(x=factor(age, 
-                                              levels=c("9","10","11","12","13","14","15-16","","Any 9-16")), y=est, 
+                                              levels=c("9","10","11","12","13","14","15-16","","Any use ages 9-16")), y=est, 
                                      fill=as.factor(race_eth))) + 
   geom_bar(data=prevs_re, stat="identity", position=position_dodge(), colour="gray") +
   geom_errorbar(data=prevs_re, aes(ymin=ci_l, ymax=ci_h), width=.1, 
