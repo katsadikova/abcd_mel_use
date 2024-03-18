@@ -17,17 +17,17 @@ library(caret)
 library(pROC) 
 library(groupdata2)
 library(SHAPforxgboost)
-source("/Users/Kat/Library/CloudStorage/OneDrive-HarvardUniversity/abcd_study_with_kat/code/ABCD_cog_resilience/shap.R")
+source("/Users/Kat/Dropbox/HSPH_T32/Potential projects/abcd_study_with_kat/code/ABCD_cog_resilience/shap.R")
 
 #-- Set working directory
-setwd("/Users/Kat/Library/CloudStorage/OneDrive-HarvardUniversity/release5/core/")
+setwd("/Users/Kat/Library/CloudStorage/OneDrive-HarvardUniversity/VDI/ABCD/release5/core")
 
 #-- Load in imputed data
 load("/Users/Kat/Dropbox/HSPH_T32/Potential projects/ABCD melatonin/temp_data/d_imp_mel_use_UPDATE_Jan17.Rdata")
 
 
 #-- Load in data dictionary - to be able to label variables
-dict <- read.csv("/Users/Kat/Library/CloudStorage/OneDrive-HarvardUniversity/abcd_study_with_kat/temp_dat/data_dict_short_labels.csv")
+dict <- read.csv("/Users/Kat/Dropbox/HSPH_T32/Potential projects/abcd_study_with_kat/temp_dat/data_dict_short_labels.csv")
 
 #-------------------------------------------------------------------------------------------------------------------------------#
 #-- Create an ID/familyID/eventname scaffold such that each person has an observation for bl, 1, 2, 3 & 4-year follow-up events
@@ -217,7 +217,7 @@ prevs_w <- data.frame(t(apply(d_imp_w[,c(131:138)],MARGIN=2,FUN=calc_prop_est_ci
   tibble::rownames_to_column(.,var="age") %>%
   mutate(age = substring(age,9),
          age = case_when(
-           age=="" ~ "Any use ages 9-16",
+           age=="" ~ "Any use",
            age=="15" ~ "15-16",
            T ~ age)
   )
@@ -226,7 +226,7 @@ prevs_b <- data.frame(t(apply(d_imp_b[,c(131:138)],MARGIN=2,FUN=calc_prop_est_ci
   tibble::rownames_to_column(.,var="age") %>%
   mutate(age = substring(age,9),
          age = case_when(
-           age=="" ~ "Any use ages 9-16",
+           age=="" ~ "Any use",
            age=="15" ~ "15-16",
            T ~ age)
   )
@@ -235,7 +235,7 @@ prevs_h <- data.frame(t(apply(d_imp_h[,c(131:138)],MARGIN=2,FUN=calc_prop_est_ci
   tibble::rownames_to_column(.,var="age") %>%
   mutate(age = substring(age,9),
          age = case_when(
-           age=="" ~ "Any use ages 9-16",
+           age=="" ~ "Any use",
            age=="15" ~ "15-16",
            T ~ age)
   )
@@ -244,7 +244,7 @@ prevs_a <- data.frame(t(apply(d_imp_a[,c(131:138)],MARGIN=2,FUN=calc_prop_est_ci
   tibble::rownames_to_column(.,var="age") %>%
   mutate(age = substring(age,9),
          age = case_when(
-           age=="" ~ "Any use ages 9-16",
+           age=="" ~ "Any use",
            age=="15" ~ "15-16",
            T ~ age)
   )
@@ -253,12 +253,13 @@ prevs_o <- data.frame(t(apply(d_imp_o[,c(131:138)],MARGIN=2,FUN=calc_prop_est_ci
   tibble::rownames_to_column(.,var="age") %>%
   mutate(age = substring(age,9),
          age = case_when(
-           age=="" ~ "Any use ages 9-16",
+           age=="" ~ "Any use",
            age=="15" ~ "15-16",
            T ~ age)
   )
 
 prevs_re <- rbind(prevs_w,prevs_b,prevs_h,prevs_a,prevs_o)
+prevs_re
 
 prevs_filler <- prevs_re %>% filter(age=="9") %>%
   mutate(
@@ -266,23 +267,31 @@ prevs_filler <- prevs_re %>% filter(age=="9") %>%
     X1=0,X2=0,X3=0,X4=0
   )
 
-prevs_re <- rbind(prevs_re,prevs_filler)
-
+prevs_re <- rbind(prevs_filler,prevs_re) 
+prevs_re
 
 names(prevs_re) <- c("age","est","se","ci_l","ci_h","race_eth")
 
-prevs_re
+prevs_re_tosave <- prevs_re %>% filter(age!="") %>%
+  mutate(
+    se = (ci_h - est)/1.96,
+    est_se = paste0(round(est,2),"(",round(se,2),")")
+  ) %>%
+  dplyr::select(race_eth,age,est_se)
+prevs_re_tosave
+
+write.csv(prevs_re_tosave, file="/Users/Kat/Dropbox/HSPH_T32/Potential projects/ABCD melatonin/results/prevs_by_age_raceethnicity.csv")
 
 #--- Plot prevalences of med, vit, melatonin use
 prev_plot_re <- ggplot(prevs_re, aes(x=factor(age, 
-                                     levels=c("9","10","11","12","13","14","15-16","","Any use ages 9-16")), y=est, 
+                                     levels=c("9","10","11","12","13","14","15-16","","Any use")), y=est, 
                                      fill=as.factor(race_eth))) + 
   geom_bar(data=prevs_re, stat="identity", position=position_dodge(), colour="gray") +
   geom_errorbar(data=prevs_re, aes(ymin=ci_l, ymax=ci_h), width=.1, 
                 linetype="solid",position = position_dodge(0.8)) + 
   #geom_text(aes(label=paste0(round(est,1),"%")), position=position_dodge(width=0.9), vjust=-3) +
   labs(x="Age", y="Prevalence (%)", fill="Race/ethnicity") +
-  theme(text=element_text(size=11),
+  theme(text=element_text(size=16),
         axis.text.x = element_text(angle = 60, vjust = 1, hjust=1),
         panel.background = element_rect(fill = 'white'),
         panel.grid = element_line(color="gray", size=0.1))
@@ -294,16 +303,20 @@ prevs_re <- prevs_re %>% filter(race_eth != "Other")
 
 #--- Plot prevalences of med, vit, melatonin use
 prev_plot_re <- ggplot(prevs_re, aes(x=factor(age, 
-                                              levels=c("9","10","11","12","13","14","15-16","","Any use ages 9-16")), y=est, 
+                                              levels=c("9","10","11","12","13","14","15-16","","Any use")), y=est, 
                                      fill=as.factor(race_eth))) + 
   geom_bar(data=prevs_re, stat="identity", position=position_dodge(), colour="gray") +
   geom_errorbar(data=prevs_re, aes(ymin=ci_l, ymax=ci_h), width=.1, 
                 linetype="solid",position = position_dodge(0.8)) + 
   #geom_text(aes(label=paste0(round(est,1),"%")), position=position_dodge(width=0.9), vjust=-3) +
   labs(x="Age", y="Prevalence (%)", fill="Race/ethnicity") +
-  theme(text=element_text(size=11),
+  theme(text=element_text(size=16),
         axis.text.x = element_text(angle = 60, vjust = 1, hjust=1),
         panel.background = element_rect(fill = 'white'),
         panel.grid = element_line(color="gray", size=0.1))
-prev_plot_re + scale_fill_brewer(palette = "Pastel2")
+prev_plot_re + 
+  scale_fill_brewer(palette = "Pastel2") + 
+  labs(caption = "Prevalence of melatonin use by participant age, race/ethnicity. Differences in melatonin use statistically significant by age (P<.001) and race/ethnicity (P<.001). 
+  Other race/ethnicity (N=1,249) omitted due the ambiguous interpretation of prevalence in a heterogeneous group") +
+  ggtitle("Figure")
 

@@ -22,7 +22,7 @@ library(doParallel)
 library(doRNG)
 
 
-setwd("/Users/Kat/Library/CloudStorage/OneDrive-HarvardUniversity/release5/core/")
+setwd("/Users/Kat/Library/CloudStorage/OneDrive-HarvardUniversity/VDI/ABCD/release5/core/")
 
 #-- Create an ID/familyID/eventname scaffold such that each person has an observation for bl, 1, 2, 3-year follow-up events
 
@@ -602,6 +602,11 @@ load("/Users/Kat/Dropbox/HSPH_T32/Potential projects/ABCD melatonin/temp_data/da
 #--------------------------------------------------------------------#
 #-- Imputation code source: https://rpubs.com/kaz_yos/mice-exclude --#
 table(complete.cases(data_all))
+propmiss <- function(dataframe) lapply(dataframe,function(x) data.frame(nmiss=sum(is.na(x)), n=length(x), propmiss=sum(is.na(x))/length(x)))
+misses <-propmiss(data_all) # bmi missing for 23% of obs
+misses <- do.call(rbind.data.frame, misses) 
+write.csv(misses, file="/Users/Kat/Dropbox/HSPH_T32/Potential projects/ABCD melatonin/temp_data/misses.csv")
+
 
 ## Configure parallelization
 ## Detect core count
@@ -636,13 +641,17 @@ meth[c("med_use_0", "med_use_1", "med_use_2", "med_use_3", "med_use_4",
        "vit_use_0", "vit_use_1", "vit_use_2", "vit_use_3", "vit_use_4",
        "mel_use_0", "mel_use_1", "mel_use_2", "mel_use_3", "mel_use_4")] <- ""
 
-Mice <- mice(data = data_all, m = 1, predictorMatrix = pred, method = meth, maxit = 1, seed=123)
+Mice <- mice(data = data_all, m = 30, predictorMatrix = pred, method = meth, maxit = 5, seed=123)
 
 #-- Save Imputed Data!
-#save(Mice, file="/Users/Kat/Dropbox/HSPH_T32/Potential projects/ABCD melatonin/temp_data/d_imp_mel_use_UPDATE_Jan17.Rdata")
-load("/Users/Kat/Dropbox/HSPH_T32/Potential projects/ABCD melatonin/temp_data/d_imp_mel_use_UPDATE_Jan17.Rdata")
+#save(Mice, file="/Users/Kat/Dropbox/HSPH_T32/Potential projects/ABCD melatonin/temp_data/d_imp_mel_use_UPDATE_Mar5.Rdata")
+load("/Users/Kat/Dropbox/HSPH_T32/Potential projects/ABCD melatonin/temp_data/d_imp_mel_use_UPDATE_Mar5.Rdata")
 
 dim(complete(Mice))
 
 summary(complete(Mice)$mel_use_0) 
 summary(data_all$mel_use_0)
+
+names(complete(Mice))
+mean(complete(Mice)$demo_brthdat_v2)
+sqrt(var(complete(Mice)$demo_brthdat_v2))
